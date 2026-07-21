@@ -23,9 +23,11 @@ Authorization (the "authorization matrix" exercise):
 The caller's identity and role come straight from the (forgeable) JWT, so the two topics
 chain: forge role=admin, then reach the admin route.
 
-OAuth (items 1-3 use the lab Keycloak; this only hosts the redirect target):
+OAuth (items 1-3 use the lab Keycloak; this hosts the redirect target + an open redirect):
   * GET  /callback         - shows the ?code / #fragment the AS sent back, so the flows
                              work with this deployed URL as the client's redirect_uri.
+  * GET  /redirect?to=...  - a deliberate open redirect. With a loose Keycloak redirect-URI
+                             allowlist (a wildcard) this leaks the code to the attacker.
 
 It is deliberately dependency-light and readable - teaching material, not a framework.
 """
@@ -248,3 +250,20 @@ def callback():
         document.getElementById('q').textContent = location.search || '(none)';
         document.getElementById('f').textContent = location.hash || '(none)';
         </script></body>""")
+
+
+@app.get("/redirect")
+def open_redirect(to: str = ""):
+    """A client-side OPEN REDIRECT on the app's own domain.
+
+    This is what makes a loose Keycloak redirect-URI allowlist dangerous: register only
+    `/callback`, but a wildcard (`.../\*`) also allows `.../redirect?to=...`. An attacker
+    sets redirect_uri to this path, so the AS delivers the code here - and this handler
+    then forwards the browser (with the code in the URL / Referer) to any site.
+
+    VULN: forward anywhere. FIX: only same-origin paths are allowed.
+    """
+    from fastapi.responses import RedirectResponse
+    if SECURE_MODE and not (to.startswith("/") and not to.startswith("//")):
+        raise HTTPException(status_code=400, detail="only same-origin redirects allowed")
+    return RedirectResponse(url=to or "/", status_code=302)

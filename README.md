@@ -49,6 +49,7 @@ The OAuth attacks run against the **lab Keycloak**; this service just hosts the 
 | Path | Purpose |
 |------|---------|
 | GET `/callback` | shows the `?code` / `#fragment` the AS returned - use this URL as a Keycloak client's `redirect_uri` |
+| GET `/redirect?to=` | a deliberate **open redirect**. With a loose (wildcard) Keycloak redirect-URI allowlist, an attacker sets `redirect_uri=.../redirect?to=https://evil` and the code is forwarded off-site. Fixed (same-origin only) in secure mode |
 
 ## Endpoints
 
@@ -61,6 +62,7 @@ The OAuth attacks run against the **lab Keycloak**; this service just hosts the 
 | GET | `/api/admin/users` | BFLA target |
 | GET | `/public.pem`, `/jwks` | the RSA public key (for the confusion attack) |
 | GET | `/callback` | OAuth redirect target |
+| GET | `/redirect?to=` | open redirect (for the loose-redirect-URI exercise) |
 
 ## Run the attacks
 
