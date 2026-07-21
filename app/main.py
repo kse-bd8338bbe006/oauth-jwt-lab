@@ -253,17 +253,25 @@ def callback():
 
 
 @app.get("/redirect")
-def open_redirect(to: str = ""):
+def open_redirect(request: Request):
     """A client-side OPEN REDIRECT on the app's own domain.
 
     This is what makes a loose Keycloak redirect-URI allowlist dangerous: register only
     `/callback`, but a wildcard (`.../\*`) also allows `.../redirect?to=...`. An attacker
-    sets redirect_uri to this path, so the AS delivers the code here - and this handler
-    then forwards the browser (with the code in the URL / Referer) to any site.
+    sets redirect_uri to this path, so the AS delivers the code here.
 
-    VULN: forward anywhere. FIX: only same-origin paths are allowed.
+    It is a *query-preserving* open redirect: it forwards the AS's `code`/`state` onto the
+    target URL, so the credential leaks off-site **even on modern browsers that strip the
+    cross-origin Referer** (a bare redirect would leak the code only via a lax referrer
+    policy; the token-in-fragment variant leaks regardless). VULN: forward anywhere.
+    FIX: only same-origin paths are allowed.
     """
+    from urllib.parse import urlencode
     from fastapi.responses import RedirectResponse
+    params = dict(request.query_params)
+    to = params.pop("to", "") or "/"
     if SECURE_MODE and not (to.startswith("/") and not to.startswith("//")):
         raise HTTPException(status_code=400, detail="only same-origin redirects allowed")
-    return RedirectResponse(url=to or "/", status_code=302)
+    if params:  # carry the AS's code/state onto the target
+        to = to + ("&" if "?" in to else "?") + urlencode(params)
+    return RedirectResponse(url=to, status_code=302)
