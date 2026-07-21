@@ -64,6 +64,23 @@ The OAuth attacks run against the **lab Keycloak**; this service just hosts the 
 | GET | `/callback` | OAuth redirect target |
 | GET | `/redirect?to=` | open redirect (for the loose-redirect-URI exercise) |
 
+## Deploy (in your lab)
+
+This runs **in the lab**, not on your laptop - same GitOps model as every other course
+service (`vuln-api`, `dpop-rs`, ...):
+
+1. **Fork** this repo into your org and enable Actions. Its CI builds the image to
+   `ghcr.io/<your-org>/oauth-jwt-lab` and - with the org `DEPLOYMENT_PAT` - rewrites
+   `applications/oauth-jwt-lab/deployment.yaml` in your `kse-labs-deployment` fork.
+2. **Sync your `kse-labs-deployment` fork** so ArgoCD deploys `svc-oauth-jwt-lab`.
+
+```bash
+curl -sk https://oauth-jwt-lab.192.168.50.10.nip.io/health   # {"secure_mode":false,...}
+```
+
+Flip to the fixed build by setting `SECURE_MODE: "true"` in
+`applications/oauth-jwt-lab/deployment.yaml` and pushing.
+
 ## Run the attacks
 
 ```bash
@@ -73,14 +90,6 @@ python demo/attack.py --base https://oauth-jwt-lab.192.168.50.10.nip.io
 
 It runs BOLA + the three JWT forgeries, then tells you to re-run against the
 `SECURE_MODE=true` deployment to watch each one fail.
-
-## Run locally
-
-```bash
-docker build -t oauth-jwt-lab .
-docker run --rm -p 8000:8000 -e SECURE_MODE=false oauth-jwt-lab
-curl -s localhost:8000/health
-```
 
 ## Configuration (env)
 
